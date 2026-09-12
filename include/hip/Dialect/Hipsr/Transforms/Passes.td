@@ -249,10 +249,14 @@ def HipsrUseOutputAllocatorPass
   let summary =
       "Rewrite returned memref.alloc outputs to hipsr.alloc_output";
   let description = [{
-    Replaces each graph-output `memref.alloc` with `hipsr.alloc_output`, reusing
-    the alloc's dynamic-size operands and setting `out_idx` to its position in
-    `func.return`. Output buffers then come from the EP output allocator and are
-    owned by the EP/runtime instead of being deallocated or pooled.
+    Replaces each graph-output `memref.alloc` with `hipsr.alloc_output`, taking
+    dynamic sizes from the allocation's `hipsr.preserve_shape` and setting
+    `out_idx` to its position in `func.return`. Output buffers then come from
+    the EP output allocator and are owned by the EP/runtime instead of being
+    deallocated or pooled.
+
+    Runs after bufferization, since a shape it reads must be an index memref,
+    and before `hipsr-pool-alloc` and `hipsr-remove-preserve-shape`.
 
     An allocation counts as a graph output when `func.return` returns it either
     directly or through view-like aliases. The view operations are left in
@@ -263,8 +267,52 @@ def HipsrUseOutputAllocatorPass
     are skipped. The function signature and `func.return` are left unchanged.
   }];
   let dependentDialects = [
+    "::mlir::arith::ArithDialect",
     "::mlir::hipsr::HipsrDialect",
     "::mlir::memref::MemRefDialect"
   ];
 }
+
+def SchemeScriptPass : Pass<"scheme-script", "mlir::ModuleOp"> {
+  let summary = "Execute MLIR pass written in Scheme";
+  let description = [{
+    Generic pass that imports an R6RS Scheme module and executes its run-pass
+    function. The module receives the module operation and can query/transform
+    IR using the Scheme FFI. This allows writing complete MLIR passes in pure
+    Scheme without C++ code.
+
+    The pass:
+    1. Sets (library-directories) to lib/scheme/ relative to executable
+    2. Imports the specified R6RS module via (import (module-name))
+    3. Calls the exported run-pass function with the module operation
+
+    Example: --scheme-script="module=printpass" imports (printpass)
+  }];
+  let options = [
+    Option<"logLevel", "log-level", "std::string", /*default=*/"\"warning\"",
+           "Logging level: trace, debug, info, warning, error, fatal">,
+    Option<"moduleName", "module", "std::string", /*default=*/"\"printpass\"",
+           "R6RS module name to import (without parentheses)">
+  ];
+}
+
+def SchemeConversionPass : Pass<"scheme-conversion", "mlir::ModuleOp"> {
+  let summary = "ONNX to HipSR conversion using Scheme-based patterns";
+  let description = [{
+    Dialect conversion pass that uses Scheme-defined patterns for rewriting.
+    Unlike scheme-script which only queries IR, this pass provides full
+    PatternRewriter access so Scheme code can create and replace operations.
+  }];
+  let options = [
+    Option<"logLevel", "log-level", "std::string", /*default=*/"\"warning\"",
+           "Logging level: trace, debug, info, warning, error, fatal">,
+    Option<"scriptName", "script", "std::string", /*default=*/"\"CastConversion.scm\"",
+           "Scheme script filename to load from lib/scheme/">
+  ];
+  let dependentDialects = [
+    "::mlir::hipsr::HipsrDialect",
+    "::mlir::onnx::OnnxDialect"
+  ];
+}
+
 #endif // HIPSR_TRANSFORMS_PASSES
