@@ -249,10 +249,14 @@ def HipsrUseOutputAllocatorPass
   let summary =
       "Rewrite returned memref.alloc outputs to hipsr.alloc_output";
   let description = [{
-    Replaces each graph-output `memref.alloc` with `hipsr.alloc_output`, reusing
-    the alloc's dynamic-size operands and setting `out_idx` to its position in
-    `func.return`. Output buffers then come from the EP output allocator and are
-    owned by the EP/runtime instead of being deallocated or pooled.
+    Replaces each graph-output `memref.alloc` with `hipsr.alloc_output`, taking
+    dynamic sizes from the allocation's `hipsr.preserve_shape` and setting
+    `out_idx` to its position in `func.return`. Output buffers then come from
+    the EP output allocator and are owned by the EP/runtime instead of being
+    deallocated or pooled.
+
+    Runs after bufferization, since a shape it reads must be an index memref,
+    and before `hipsr-pool-alloc` and `hipsr-remove-preserve-shape`.
 
     An allocation counts as a graph output when `func.return` returns it either
     directly or through view-like aliases. The view operations are left in
@@ -263,8 +267,34 @@ def HipsrUseOutputAllocatorPass
     are skipped. The function signature and `func.return` are left unchanged.
   }];
   let dependentDialects = [
+    "::mlir::arith::ArithDialect",
     "::mlir::hipsr::HipsrDialect",
     "::mlir::memref::MemRefDialect"
   ];
 }
+
+def ConversionInSchemePass : Pass<"conversion-in-scheme", "mlir::ModuleOp"> {
+  let summary = "General dialect conversion using Scheme-defined patterns";
+  let description = [{
+    Configurable conversion pass using patterns defined in Scheme.
+    The Scheme module to load is specified via the 'module' option.
+
+    Examples:
+      --conversion-in-scheme="module=passes/onnx-to-hipsr"  - ONNX to HipSR conversion
+      --conversion-in-scheme="module=passes/print"  - Print pass (walks and prints all operations)
+      --conversion-in-scheme="module=passes/onnx-to-hipsr,log-level=debug"  - with debug logging
+
+    Enables writing conversion patterns in Scheme without C++ recompilation.
+  }];
+  let options = [
+    Option<"moduleName", "module", "std::string", /*default=*/"\"\"",
+           "Scheme module name to load (e.g., 'passes/onnx-to-hipsr')">,
+    Option<"logLevel", "log-level", "std::string", /*default=*/"\"warning\"",
+           "Logging level: trace, debug, info, warning, error, fatal">
+  ];
+  let dependentDialects = [
+    "::mlir::hipsr::HipsrDialect"
+  ];
+}
+
 #endif // HIPSR_TRANSFORMS_PASSES
