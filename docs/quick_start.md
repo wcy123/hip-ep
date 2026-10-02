@@ -356,11 +356,15 @@ the CI wheel smoke does (`Run OGA wheel smoke (Python)` in
 # OGA's own end-to-end benchmark, from the OGA source cloned in step 3
 python python/examples/run_onnx.py \
   --benchmark onnxruntime-genai/benchmark/python/benchmark_e2e.py \
-  -i /path/to/model_dir -l 128 -g 128 -r 5 -w 1 -b 1 -m -1 -v
+  -i /path/to/model_dir -l 128 -g 128 -r 5 -w 1 -b 1 --use_random_tokens
 
 # Or a plain ONNX model with random inputs
 python python/examples/run_onnx.py /path/to/model.onnx
 ```
+
+`--use_random_tokens` keeps the prompt at exactly `-l` tokens. Without a prompt
+source, `benchmark_e2e.py` samples one that can exceed `max_length`, so
+`run_onnx.py` adds the flag in that case.
 
 `benchmark_e2e.py` runs with the default `-e follow_config`, so the model's
 `genai_config.json` selects the EP via `provider_options`. With the upstream OGA
@@ -409,6 +413,11 @@ $LOCAL_DIR/bin/hip-onnx-runner.exe -m /path/to/model.onnx -i gen_inputs -d 2
 
 # L2-norm compare EP vs CPU outputs
 $LOCAL_DIR/bin/hip-onnx-runner.exe -L ep_o_dump,cpu_o_dump
+
+# Load the model through the EP and exit before inference, with extra EP options.
+# An init-only config claims no node, so CPU fallback has to be allowed.
+$LOCAL_DIR/bin/hip-onnx-runner.exe -m /path/to/model.onnx --no-run \
+  --allow-cpu-fallback --provider-options config_file=/path/to/only_init_config.json
 ```
 
 **Key flags:**
@@ -421,6 +430,9 @@ $LOCAL_DIR/bin/hip-onnx-runner.exe -L ep_o_dump,cpu_o_dump
 | `-i <dir>` | Load inputs from directory instead of random |
 | `-f <name>:<val>` | Resolve a symbolic input dim at runtime (repeatable/comma-separated); EP still compiles the dynamic graph, unmatched symbolic dims default to 1 |
 | `-L dir1,dir2` | L2-norm comparison of two output directories |
+| `--provider-options <k>=<v>` | Extra EP provider options (repeatable/comma-separated); overrides environment defaults, `--mlir-dump-dir` still wins for `dump_dir` |
+| `--no-run` | Create the session (EP init, compilation, dumps) and exit without running inference |
+| `--allow-cpu-fallback` | Do not set `session.disable_cpu_ep_fallback`; needed for EP configurations that intentionally claim no node |
 
 ### Latency Benchmarking with onnxruntime_perf_test
 

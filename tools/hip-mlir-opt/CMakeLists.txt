@@ -15,7 +15,6 @@ add_dependencies(hip-mlir-opt
   HipOpsIncGen
   HipPassesIncGen
 )
-
 target_link_libraries(hip-mlir-opt PRIVATE
   HipSupport
   LibHipCompiler
@@ -24,6 +23,7 @@ target_link_libraries(hip-mlir-opt PRIVATE
   OnnxDialectIR
   HipsrDialectTransforms
   HipsrDialectPipelines
+  HipsrSchemeRuntime
   HipDialectTransforms
   HipToLLVM
   OnnxToHip

@@ -3,6 +3,10 @@
 # ** Licensed under the MIT License.
 ##
 
+# ============================================================================
+# OnnxToHip Library
+# ============================================================================
+
 add_library(OnnxToHip STATIC
   OnnxToHip.cpp
   SimplifyOnnx.cpp
@@ -103,6 +107,7 @@ add_library(OnnxToHip STATIC
   IfOutline.cpp
   ReluConversion.cpp
   LeakyReluConversion.cpp
+  SwishConversion.cpp
   ClipConversion.cpp
 )
 
@@ -125,4 +130,5 @@ target_link_libraries(OnnxToHip PUBLIC
   MLIRIR
   MLIRSupport
   MLIRTransforms
+  MLIRParser
 )

@@ -27,6 +27,7 @@ target_link_libraries(LibHipCompiler PUBLIC
   HipDialectIR
   HipsrDialectIR
   HipsrDialectTransforms
+  HipsrSchemeRuntime
   HipsrDialectPipelines
   HipDialectTransforms
   HipTargetLLVM
@@ -47,6 +48,8 @@ target_link_libraries(LibHipCompiler PUBLIC
   MLIRParser
   MLIRLLVMToLLVMIRTranslation
   MLIRTargetLLVMIRExport
+  MLIRIndexToLLVM
+  MLIRControlFlowToLLVM
   HipSchemasLib
 )
 
