@@ -23,6 +23,7 @@
 
 #include <limits>
 #include <map>
+#include <string>
 
 #define DEBUG_TYPE "convert-onnx-to-hip"
 
@@ -290,6 +291,7 @@ static mlir::LogicalResult convertComputeOps(mlir::func::FuncOp funcOp,
   populateConcatConversionPatterns(patterns, ctx);
   populateReluConversionPatterns(patterns, ctx);
   populateLeakyReluConversionPatterns(patterns, ctx);
+  populateSwishConversionPatterns(patterns, ctx);
   populateClipConversionPatterns(patterns, ctx);
   populatePoolConversionPatterns(patterns, ctx);
   populateResizeConversionPatterns(patterns, ctx);
@@ -434,6 +436,19 @@ void ConvertOnnxToHipPass::runOnOperation() {
   if (mlir::failed(generateModuleMetadata(module)))
     return signalPassFailure();
   logSubpass("metadata");
+
+  // MorphiZen may import com.microsoft Q/DQ function ops as onnx.Custom.
+  // Normalize them to native onnx.QuantizeLinear / onnx.DequantizeLinear so
+  // that QdqConversion below can lower them; nothing downstream matches the
+  // onnx.Custom spelling.
+  {
+    mlir::RewritePatternSet customQdqPatterns(ctx);
+    populateCustomQdqCanonicalizationPatterns(customQdqPatterns, ctx);
+    if (mlir::failed(
+            mlir::applyPatternsGreedily(module, std::move(customQdqPatterns))))
+      return signalPassFailure();
+  }
+  logSubpass("custom QDQ canonicalization");
 
   int64_t constantOrder = 0;
   for (auto funcOp :
